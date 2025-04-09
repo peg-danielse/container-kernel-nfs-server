@@ -1,4 +1,6 @@
-# erichough/nfs-server
+# container-kernel-nfs-server
+
+*small tweaks to ehough/docker-nfs-server for use as a flexible storage medium in a Kubernetes cluster*
 
 A lightweight, robust, flexible, and containerized NFS server.
 
