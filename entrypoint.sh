@@ -272,6 +272,13 @@ is_kernel_module_loaded() {
 }
 
 is_granted_linux_capability() {
+    cap_lower=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+    cap_line=$(capsh --print)
+    echo "$cap_line" | grep -q "\b$cap_lower\b"
+}
+
+# depricated
+is_granted_linux_capability_old() {
 
   if capsh --print | grep -Eq "^Current: = .*,?${1}(,|$)"; then
     return 0
@@ -530,8 +537,10 @@ boot_helper_mount() {
 boot_helper_get_version_flags() {
 
   local -r requested_version="${state[$STATE_NFS_VERSION]}"
-  local flags=('--nfs-version' "$requested_version" '--no-nfs-version' 2)
 
+  #local flags=('--nfs-version' "$requested_version" '--no-nfs-version' 2)
+  local flags=('--nfs-version' "$requested_version")
+  
   if ! is_nfs3_enabled; then
     flags+=('--no-nfs-version' 3)
   fi
@@ -702,13 +711,18 @@ boot_main_nfsd() {
   read -r -a version_flags <<< "$(boot_helper_get_version_flags)"
   local -r threads="${state[$STATE_NFSD_THREAD_COUNT]}"
   local -r port="${state[$STATE_NFSD_PORT]}"
-  local args=('--tcp' '--udp' '--port' "$port" "${version_flags[@]}" "$threads")
+  local args=("--tcp" "--udp" "--port" "$port" "${version_flags[@]}" "$threads")
 
+  local cmd_display="$(printf '%q ' "${args[@]}")"
+  
   if is_logging_debug; then
-    args+=('--debug')
+    args+=("--debug")
   fi
 
-  boot_helper_start_daemon "starting rpc.nfsd on port $port with $threads server thread(s)" $PATH_BIN_NFSD "${args[@]}"
+
+  boot_helper_start_daemon \
+	 "starting rpc.nfsd : $cmd_display" \
+	 "$PATH_BIN_NFSD" ${args[@]}
 
   # rpcbind isn't required for NFSv4, but if it's not running then nfsd takes over 5 minutes to start up.
   # it's a bug in either nfs-utils or the kernel, and the code of both is over my head.
@@ -840,7 +854,13 @@ boot() {
 
   boot_main_mounts
   boot_main_rpcbind
+  
+  log 'rpc done'
+  
   boot_main_exportfs
+
+  log 'exports failed'
+
   boot_main_mountd
   boot_main_statd
   boot_main_idmapd
